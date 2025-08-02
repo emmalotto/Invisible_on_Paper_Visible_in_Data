@@ -1,4 +1,4 @@
-## ⚠️ The GitHub repository is currently a work in progress and will be finalized in the coming days.
+## ⚠️ This GitHub repository is currently a work in progress and will be finalized in the coming days.
 
 ---
 
