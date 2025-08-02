@@ -1,3 +1,7 @@
+## ⚠️ The GitHub repository is currently a work in progress and will be finalized in the coming days.
+
+---
+
 # Invisible on Paper, Visible in Data
 
 This repository contains all R scripts, codebooks, and supplementary materials used in the Bachelor's thesis:
