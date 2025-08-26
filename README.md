@@ -24,14 +24,32 @@ All analyses were conducted in **R** and organized to ensure full **transparency
 
 ```bash
 Invisible_on_Paper_Visible_in_Data/
-├── 0_data/               # Raw and cleaned data files (e.g. .dta, .RDS)
-├── 1_intro/              # Introduction and thesis structure
-├── 2_data_methods/       # Sampling, variables, and modeling description
-├── 3_exploration/        # Descriptive analysis and data exploration
-├── 4_fertility/          # Fertility gap, desired vs. actual children
-├── 5_models/             # Linear, Poisson and Logistic regressions
-├── 6_appendix/           # Codebook, questionnaire, extra tables
-└── README.md             # This file
+├── Invisible_on_Paper.Rproj                # R project to open before starting
+├── preprocessing.R                         # Data preprocessing script (sourced in all Rmd files)
+├── RSA015-Final ipre data set v05.dta      # Original dataset
+
+├── CHAPTER 3/                              # Data Exploration
+│   ├── 3.2 Overview of respondents’ characteristics/
+│   │   └── 3.2.Rmd
+│   ├── 3.3 Health Service Interactions/
+│   │   └── 3.3.Rmd
+│   └── 3.4 Children and documentation/
+│       └── 3.4.Rmd
+
+├── CHAPTER 4/                              # Fertility
+│   ├── 4.2 From National Trends to Sample Analysis/
+│   │   └── 4.2.Rmd
+│   └── 4.3 Reproductive Aspirations and Fertility Outcomes/
+│       └── 4.3.Rmd
+
+└── CHAPTER 5/                              # Statistical Models
+    ├── 5.3 Linear regression analysis/
+    │   └── 5.3.Rmd       
+    ├── 5.4 Poisson regression analysis/
+    │   └── 5.4.Rmd       
+    └── 5.5 Logit analysis/
+        └── 5.5.Rmd       
+
 ```
 
 ---
@@ -43,36 +61,48 @@ All scripts are written in R Markdown (`.Rmd`) and organized by thesis chapter a
 To reproduce the analysis:
 
 1. Clone or download this repository
-2. Open each `.Rmd` file following the chapter order
-3. Make sure the original dataset  
-   `RSA015-Final ipre data set v05.dta`  
-   is placed inside the folder `0_data/`
-4. Knit or run the chunks in RStudio
+2. Open the R Project file: `Invisible on Paper, Visible in Data.Rproj`
+3. Run the preprocessing script: `preprocessing.R` (this script is automatically sourced by all Rmd files)
+4. Open and knit the .Rmd files following the chapter and section structure:
+- CHAPTER 3 – Data Exploration: 3.2, 3.3, 3.4
+- CHAPTER 4 – Fertility: 4.2, 4.3
+- CHAPTER 5 – Statistical Models: 5.3, 5.4, 5.5
 
-All variable transformations are documented in a separate codebook.
 
 ---
 
 ## 📦 Dependencies
 
-The following R packages were used throughout the project:
+The following R packages are required to run the analysis:
 
-- `tidyverse`
-- `haven`
-- `dplyr`
-- `ggplot2`
-- `broom`
-- `survey`
-- `psych`
-- `patchwork`
-- `readxl`
-- `car`
+- `haven`  
+- `here`  
+- `tidyverse`  
+- `dplyr`  
+- `ggplot2`  
+- `scales`  
+- `gtsummary`  
+- `polycor`  
+- `ggcorrplot`  
+- `modelsummary`  
 
 You can install them using:
 
 ```r
-install.packages(c("tidyverse", "haven", "broom", "survey", "psych", "patchwork", "readxl", "car"))
+install.packages(c(
+  "haven", "here", "tidyverse", "dplyr", "ggplot2", "scales",
+  "gtsummary", "polycor", "ggcorrplot", "modelsummary"
+))
 ```
+
+⚠️ Notes
+
+AIC values:
+   Linear models → Section 5.3
+   Poisson models → Section 5.4
+   Logistic regressions → Section 5.5
+
+Each AIC is computed directly within the corresponding model file.
 
 🔒 License
 This repository is released under the MIT License.
