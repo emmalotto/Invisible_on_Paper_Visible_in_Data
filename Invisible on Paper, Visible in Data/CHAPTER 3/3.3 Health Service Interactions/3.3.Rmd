@@ -1,0 +1,321 @@
+---
+title: "3.3"
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Health Service Interactions
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 3.3, “Health Service Interactions”. The analysis is divided into paragraphs: one for each variable explored.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+Variable q38 - Minutes to Reach Health Facility
+
+```{r}
+summary(data_subset$Q38)
+# Descriptive statistics
+data_subset %>%
+  group_by(marital_group) %>%
+  summarise(
+    mean_minutes = mean(Q38, na.rm = TRUE),
+    sd_minutes = sd(Q38, na.rm = TRUE),
+    n = sum(!is.na(Q38))
+  )
+
+# ANOVA 
+aov_gender   <- aov(Q38 ~ gender, data = data_subset)
+aov_age      <- aov(Q38 ~ age_group, data = data_subset)
+aov_educ     <- aov(Q38 ~ educ_group, data = data_subset)
+aov_marital  <- aov(Q38 ~ marital_group, data = data_subset)
+aov_ethnic   <- aov(Q38 ~ factor(nubian), data = data_subset)
+aov_doc      <- aov(Q38 ~ undocumented_def, data = data_subset)
+
+# Summary 
+summary(aov_gender)
+summary(aov_age)
+summary(aov_educ)
+summary(aov_marital)
+summary(aov_ethnic)
+summary(aov_doc)
+```
+
+> Statistically significant differences by age group (p = 0.031), education level (p \< 0.001) and documentation status (p = 0.002)
+
+Variable q39:Ability to Afford Medical Treatment
+
+```{r}
+table(data_subset$Q39)
+#Care is so expensive that we generally go without treatment 0
+# We have to borrow money or sell an asset in order to have money for treatment 1
+#We have to forego other essential goods or services in order to afford treatment 2
+#We can get treatment without having to worry about the cost 3
+# Pulizia: escludiamo don't know / refuse
+q39_clean <- data_subset %>%
+  filter(Q39 %in% 0:3)
+
+table(q39_clean$Q39)
+prop.table(table(q39_clean$Q39)) * 100
+
+ggplot(q39_clean, aes(x = factor(Q39))) +
+  geom_bar(fill = "steelblue") +
+  scale_x_discrete(labels = c(
+    "0" = "Go without care",
+    "1" = "Borrow/Sell",
+    "2" = "Forego essentials",
+    "3" = "No cost issue"
+  )) +
+  labs(title = "Q39 – Ability to Pay for Medical Treatment",
+       x = "Response", y = "Count")
+
+
+chisq.test(table(data_subset$Q39, data_subset$B1))$p.value            # gender
+chisq.test(table(data_subset$Q39, data_subset$age_group))$p.value     # age group
+chisq.test(table(data_subset$Q39, data_subset$nubian))$p.value        # nubian
+chisq.test(table(data_subset$Q39, data_subset$undocumented))$p.value  # undocumented
+chisq.test(table(data_subset$Q39, data_subset$marital_group))$p.value # marital status
+chisq.test(table(data_subset$Q39, data_subset$educ_group))$p.value    # education
+
+# Gender
+result_gender <- chisq.test(table(q39_clean$Q39, q39_clean$B1))
+print(result_gender)
+
+# Age group
+result_age <- chisq.test(table(q39_clean$Q39, q39_clean$age_group))
+print(result_age)
+
+# Nubian
+result_nubian <- chisq.test(table(q39_clean$Q39, q39_clean$nubian))
+print(result_nubian)
+
+# Undocumented
+result_undoc_def <- chisq.test(table(q39_clean$Q39, q39_clean$undocumented_def))
+print(result_undoc_def)
+
+
+# Marital status
+result_marital <- chisq.test(table(q39_clean$Q39, q39_clean$marital_group))
+print(result_marital)
+
+# Education
+result_educ <- chisq.test(table(q39_clean$Q39, q39_clean$educ_group))
+print(result_educ)
+
+
+
+# Nubian
+round(prop.table(table(q39_clean$Q39, q39_clean$nubian), 2) * 100, 1)
+
+# Education
+round(prop.table(table(q39_clean$Q39, q39_clean$educ_group), 2) * 100, 1)
+
+
+```
+
+> Ethnicity and education level emerged as key factors influencing disparities in financial access to care (p \< 0.001), with ethnic minority groups and individuals with lower educational attainment facing more financial barriers. Furthermore, documentation status significantly affected affordability (p \< 0.001); undocumented respondents were more likely to encounter financial difficulties when seeking treatment.
+
+Variable q40: Skipped care due to cost
+
+```{r}
+q40_clean <- data_subset %>%
+  filter(Q40 %in% c(0, 1))
+
+freq_q40 <- table(q40_clean$Q40)
+perc_q40 <- round(prop.table(freq_q40) * 100, 1)
+
+print(freq_q40)
+print(perc_q40)
+
+##Test
+# Gender
+test_gender <- fisher.test(table(q40_clean$Q40, q40_clean$gender))
+print(test_gender)
+
+# Age group
+test_age <- fisher.test(table(q40_clean$Q40, q40_clean$age_group))
+print(test_age)
+
+# Education
+test_educ <- fisher.test(table(q40_clean$Q40, q40_clean$educ_group))
+print(test_educ)
+
+# Marital status
+test_marital <- fisher.test(table(q40_clean$Q40, q40_clean$marital_group))
+print(test_marital)
+
+# Ethnicity (Nubian)
+test_nubian <- fisher.test(table(q40_clean$Q40, q40_clean$nubian))
+print(test_nubian)
+
+# Documentation (undocumented_def)
+test_doc <- fisher.test(table(q40_clean$Q40, q40_clean$undocumented_def))
+print(test_doc)
+
+#Educational level
+fisher.test(table(q40_clean$Q40, q40_clean$educ_group))
+
+
+perc_by_educ <- round(prop.table(table(q40_clean$Q40, q40_clean$educ_group), 2) * 100, 1)
+print(perc_by_educ)
+
+#VARIABLE 40a
+q40a_clean <- data_subset %>%
+  filter(Q40 == 1 & Q40a < 98)
+
+summary(q40a_clean$Q40a)
+mean(q40a_clean$Q40a, na.rm = TRUE)
+sd(q40a_clean$Q40a, na.rm = TRUE)
+
+q40a_summary <- q40a_clean %>%
+  group_by(educ_group) %>%
+  summarise(
+    mean_skips = mean(Q40a, na.rm = TRUE),
+    sd_skips   = sd(Q40a, na.rm = TRUE),
+    n          = n()
+  )
+print(q40a_summary)
+
+# ANOVA: Q40a ~ educ_group
+anova_q40a_educ <- aov(Q40a ~ educ_group, data = q40a_clean)
+summary(anova_q40a_educ)
+
+
+#age group
+anova_q40a_age <- aov(Q40a ~ age_group, data = q40a_clean)
+summary(anova_q40a_age)
+
+#marital status
+anova_q40a_marital <- aov(Q40a ~ marital_group, data = q40a_clean)
+summary(anova_q40a_marital)
+
+#undocumented_def
+anova_q40a_doc <- aov(Q40a ~ undocumented_def, data = q40a_clean)
+summary(anova_q40a_doc)
+
+#ethnicity (nubian)
+anova_q40a_nubian <- aov(Q40a ~ factor(nubian), data = q40a_clean)
+summary(anova_q40a_nubian)
+
+#gender
+anova_q40a_gender <- aov(Q40a ~ gender, data = q40a_clean)
+summary(anova_q40a_gender)
+
+
+```
+
+> A statistically significant association was found between foregone care and education level (p = 0.0028), with over 20% of respondents with primary-or-less education reporting forgone care versus 11.7% among those with tertiary qualifications. Other socio-demographic variables showed limited variation in forgone-care rates, although respondents without full documentation were somewhat more likely to miss treatment (17.3%). Among respondents who reported any skipped care, the mean number of episodes in the past year was 2.57. Group means suggested a slightly higher frequency for tertiary-educated respondents (mean = 2.97), but ANOVA detected no statistically significant differences across background groups.
+
+Variable q41: Facility Type Typically Visited
+
+```{r}
+q41_clean <- data_subset %>% filter(Q41 %in% 0:3)
+
+#tables
+freq_q41 <- table(q41_clean$Q41)
+pct_q41  <- prop.table(freq_q41) * 100
+print(freq_q41)
+
+
+print(round(pct_q41, 1))
+
+#test
+
+# Gender
+tbl_gender <- table(q41_clean$Q41, q41_clean$gender)
+chisq.test(tbl_gender, simulate.p.value = TRUE)
+
+# Age group
+tbl_age <- table(q41_clean$Q41, q41_clean$age_group)
+chisq.test(tbl_age, simulate.p.value = TRUE)
+
+# Nubian
+tbl_nubian <- table(q41_clean$Q41, q41_clean$nubian)
+chisq.test(tbl_nubian, simulate.p.value = TRUE)
+
+# Undocumented
+tbl_undoc <- table(q41_clean$Q41, q41_clean$undocumented_def)
+chisq.test(tbl_undoc, simulate.p.value = TRUE)
+
+
+# Marital group
+tbl_marital <- table(q41_clean$Q41, q41_clean$marital_group)
+chisq.test(tbl_marital, simulate.p.value = TRUE)
+
+# Education group
+tbl_educ <- table(q41_clean$Q41, q41_clean$educ_group)
+chisq.test(tbl_educ, simulate.p.value = TRUE)
+
+# 4. Percentuali per variabili significative (esempio Nubian e Educ)
+pct_by_nubian <- prop.table(tbl_nubian, 2) * 100
+print(round(pct_by_nubian, 1))
+
+pct_by_educ <- prop.table(tbl_educ, 2) * 100
+print(round(pct_by_educ, 1))
+
+pct_by_undo <- prop.table(tbl_undoc, 2) * 100
+print(round(pct_by_undo, 1))
+
+```
+
+> Government hospitals were the most commonly reported usual source of non-emergency care (36.8%), followed by private clinics/hospitals (30.5%), NGO clinics (22.1%) and government clinics (10.6%). Chi-squared tests with Monte Carlo p-value estimation found significant associations between facility type and age (p = 0.039), ethnicity (p = 0.0005), documentation status (p = 0.0005) and education (p = 0.0025), whereas gender and marital status showed no significant relationships.
+
+Variable q44: Denial of Care Due to Lack of Identification
+
+```{r}
+q44_clean <- data_subset %>%
+  filter(Q44 %in% 0:1)
+
+#tables
+freq_q44 <- table(q44_clean$Q44)
+perc_q44 <- prop.table(freq_q44) * 100
+
+print(freq_q44)
+print(round(perc_q44, 2))
+
+#test
+vars <- c("B1", "age_group", "nubian", "undocumented_def", "marital_group", "educ_group")
+
+for (v in vars) {
+  cat("\n--- Testing association between Q44 and", v, "---\n")
+  tbl <- table(q44_clean$Q44, q44_clean[[v]])
+  test <- fisher.test(tbl)
+  print(test)
+}
+
+```
+
+> Reports of denial of care for lack of identification were very rare (1.9%); 98.1% of households reported never experiencing denial. Fisher’s exact tests revealed no significant associations with most sociodemographic variables, though an association with age groups was observed (p = 0.024); this isolated significance should be interpreted cautiously given the very low prevalence.
+
+Variable q45: Avoidance of Care Due to Fear of Denial
+
+```{r}
+q45_clean <- data_subset %>%
+  filter(Q45 %in% 0:1)
+
+#tables
+freq_q45 <- table(q45_clean$Q45)
+perc_q45 <- prop.table(freq_q45) * 100
+print(freq_q45)
+print(round(perc_q45, 2))
+
+#test
+vars <- c("B1", "age_group", "nubian", "undocumented_def", "marital_group", "educ_group")
+
+for (v in vars) {
+  cat("\n--- Testing association between Q45 and", v, "---\n")
+  tbl <- table(q45_clean$Q45, q45_clean[[v]])
+  test <- fisher.test(tbl)
+  print(test)
+}
+```
+
+> Avoidance of care due to fear of being denied for lacking identification was also uncommon (2.1% of respondents). Fisher’s exact tests and corresponding odds ratios showed no significant or systematic associations with gender, age, ethnicity, documentation, marital status or education, indicating that fear-based avoidance is not patterned by these observed characteristics.

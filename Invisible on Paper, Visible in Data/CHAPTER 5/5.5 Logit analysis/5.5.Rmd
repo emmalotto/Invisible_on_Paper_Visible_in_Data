@@ -1,0 +1,167 @@
+---
+title: '5.5'
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Logistic Regression Models on the Likelihood of Desiring at Least One Child
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 5.5, “Logistic Regression Models on the Likelihood of Desiring at Least One Child”. This file contains the single models and the related AIC and subsequently the step by step models with the related AIC.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+SINGLE MODELS:
+
+```{r}
+
+# Age
+logit_age <- glm(
+  desired_any ~ Q1,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_age)
+exp(coef(logit_age))           # Odds ratios
+
+
+# Gender
+logit_gender <- glm(
+  desired_any ~ B1,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_gender)
+exp(coef(logit_gender))
+
+
+# Marital status
+logit_marital <- glm(
+  desired_any ~ marital_group,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_marital)
+exp(coef(logit_marital))
+
+
+# Education
+logit_educ <- glm(
+  desired_any ~ educ_group,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_educ)
+exp(coef(logit_educ))
+
+
+# Documentation
+logit_undoc <- glm(
+  desired_any ~ undocumented_def,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_undoc)
+exp(coef(logit_undoc))
+
+
+# Nubian ethnicity
+logit_nubian <- glm(
+  desired_any ~ nubian,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit_nubian)
+exp(coef(logit_nubian))
+
+```
+
+AIC
+
+```{r}
+AIC(logit_age)
+AIC(logit_gender)
+AIC(logit_marital)
+AIC(logit_educ)
+AIC(logit_undoc)
+AIC(logit_nubian)
+
+```
+
+STEP BY STEP MODELS:
+
+```{r}
+# Model 1: Age only
+logit1 <- glm(
+  desired_any ~ Q1,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit1)
+exp(coef(logit1))
+
+# Model 2: + Gender
+logit2 <- glm(
+  desired_any ~ Q1 + B1,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit2)
+exp(coef(logit2))
+
+# Model 3: + Marital Status
+logit3 <- glm(
+  desired_any ~ Q1 + B1 + marital_group,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit3)
+exp(coef(logit3))
+
+# Model 4: + Education
+logit4 <- glm(
+  desired_any ~ Q1 + B1 + marital_group + educ_group,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit4)
+exp(coef(logit4))
+
+# Model 5: + Documentation
+logit5 <- glm(
+  desired_any ~ Q1 + B1 + marital_group + educ_group + undocumented_def,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit5)
+exp(coef(logit5))
+
+# Model 6: + Nubian Ethnicity
+logit6 <- glm(
+  desired_any ~ Q1 + B1 + marital_group + educ_group + undocumented_def + nubian,
+  family = binomial(link = "logit"),
+  data = model_data
+)
+summary(logit6)
+exp(coef(logit6))
+```
+
+AIC
+
+```{r}
+AIC(logit1)
+AIC(logit2)
+AIC(logit3)
+AIC(logit4)
+AIC(logit5)
+AIC(logit6)
+
+```

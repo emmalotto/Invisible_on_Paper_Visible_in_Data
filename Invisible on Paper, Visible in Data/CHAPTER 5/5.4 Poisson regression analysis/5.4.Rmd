@@ -1,0 +1,200 @@
+---
+title: '5.4'
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Fertility Preferences through the Lens of Count Data: Poisson Estimates
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 5.4, “Fertility Preferences through the Lens of Count Data: Poisson Estimates”. This file contains the single models and the related AIC and subsequently the step by step models with the related AIC.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+SINGLE MODELS:
+
+```{r}
+#age
+model_age <- glm(
+  desired_children ~ Q1,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_age)
+exp(coef(model_age))
+
+#gender
+model_gender <- glm(
+  desired_children ~ B1,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_gender)
+exp(coef(model_gender))
+
+
+#marital status
+model_marital <- glm(
+  desired_children ~ marital_group,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_marital)
+exp(coef(model_marital))
+
+
+#educational level
+model_educ <- glm(
+  desired_children ~ educ_group,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_educ)
+exp(coef(model_educ))
+
+
+#undocumented
+model_undoc <- glm(
+  desired_children ~ undocumented_def,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_undoc)
+exp(coef(model_undoc))
+
+
+#nubian
+model_nubian <- glm(
+  desired_children ~ nubian,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model_nubian)
+exp(coef(model_nubian))
+
+
+```
+
+AIC
+
+```{r}
+AIC(model_age)
+AIC(model_gender)
+AIC(model_marital)
+AIC(model_educ)
+AIC(model_undoc)
+AIC(model_nubian)
+```
+
+STEP BY STEP MODELS:
+
+```{r}
+#only age
+model1 <- glm(
+  desired_children ~ Q1,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model1)
+exp(coef(model1))
+
+
+# + gender
+model2 <- glm(
+  desired_children ~ Q1 + B1,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model2)
+exp(coef(model2))
+
+
+# + marital status
+model3 <- glm(
+  desired_children ~ Q1 + B1 + marital_group,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model3)
+exp(coef(model3))
+
+
+# + educational level
+model4 <- glm(
+  desired_children ~ Q1 + B1 + marital_group + educ_group,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model4)
+exp(coef(model4))
+
+
+# + undocumented
+model5 <- glm(
+  desired_children ~ Q1 + B1 + marital_group + educ_group + undocumented_def,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model5)
+exp(coef(model5))
+
+
+# + nubian
+model6 <- glm(
+  desired_children ~ Q1 + B1 + marital_group + educ_group + undocumented_def + nubian,
+  family = poisson(link = "log"),
+  data = model_data
+)
+summary(model6)
+exp(coef(model6))
+
+
+```
+
+AIC
+
+```{r}
+AIC(model1)
+AIC(model2)
+AIC(model3)
+AIC(model4)
+AIC(model5)
+AIC(model6)
+```
+
+OVERDISPERSION
+
+```{r}
+
+poisson_models <- list(
+  "Poisson: Age" = model_age,
+  "Poisson: Gender" = model_gender,
+  "Poisson: Marital" = model_marital,
+  "Poisson: Education" = model_educ,
+  "Poisson: Undocumented" = model_undoc,
+  "Poisson: Nubian" = model_nubian,
+  "Poisson: Step 1" = model1,
+  "Poisson: Step 2" = model2,
+  "Poisson: Step 3" = model3,
+  "Poisson: Step 4" = model4,
+  "Poisson: Step 5" = model5,
+  "Poisson: Step 6" = model6
+)
+
+
+check_overdispersion <- function(model) {
+  sum(residuals(model, type = "pearson")^2) / df.residual(model)
+}
+
+# it is applied to all models and the results are printed
+sapply(poisson_models, check_overdispersion)
+
+```

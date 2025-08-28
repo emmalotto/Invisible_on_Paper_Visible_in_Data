@@ -1,0 +1,174 @@
+---
+title: '4.2'
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Reproductive Aspirations and Fertility Outcomes
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 4.2, *“*Reproductive Aspirations and Fertility Outcomes*”*.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+CHILDREN EVER BORN (CEB)
+
+```{r}
+dataset_fertility <- data_subset %>%
+  filter(gender == "Female", !is.na(Q1), Q1 >= 15, Q1 <= 49, !is.na(nubian)) %>%
+  mutate(age_group_5 = cut(Q1,
+                           breaks = seq(15, 50, by = 5),
+                           right = FALSE,
+                           labels = c("15-19", "20-24", "25-29", "30-34", 
+                                      "35-39", "40-44", "45-49")))
+
+
+#mean 
+ceb_by_age <- dataset_fertility %>%
+  group_by(age_group_5) %>%
+  summarise(mean_ceb = mean(actual_children, na.rm = TRUE)) %>%
+  arrange(age_group_5)
+
+#difference
+ceb_by_age <- ceb_by_age %>%
+  mutate(approx_asfr = c(NA, diff(mean_ceb)))
+
+
+#i sum the difference between CEB
+tfr_like <- sum(ceb_by_age$approx_asfr, na.rm = TRUE)
+
+print(ceb_by_age)
+cat("TFR-like:", round(tfr_like, 2), "\n")
+
+
+```
+
+> The first analysis, conducted on the entire female sample aged 15 to 49, resulted in an approximate TFR of 2.36. The age-specific mean number of children increased steadily through the age groups, reflecting typical fertility progression, although a slight negative difference was observed in the oldest group (45-49), likely due to sample variability or reporting inconsistencies. Overall, the results suggest moderate fertility levels consistent with known demographic patterns.
+
+CEB BY NUBIAN
+
+```{r}
+
+ceb_by_age <- dataset_fertility %>%
+  group_by(nubian, age_group_5) %>%
+  summarise(mean_ceb = mean(actual_children, na.rm = TRUE), .groups = "drop") %>%
+  arrange(nubian, age_group_5)
+
+
+#difference between successive groups for each value of Nubian
+ceb_by_age <- ceb_by_age %>%
+  group_by(nubian) %>%
+  mutate(approx_asfr = c(NA, diff(mean_ceb))) %>%
+  ungroup()
+
+# TFR-like by summing the differences
+tfr_like_by_nubian <- ceb_by_age %>%
+  group_by(nubian) %>%
+  summarise(tfr_like = sum(approx_asfr, na.rm = TRUE))
+
+#results
+print(ceb_by_age)
+
+tfr_like_by_nubian <- ceb_by_age %>%
+  filter(age_group_5 != "45-49") %>%   # escludo ultimo gruppo
+  group_by(nubian) %>%
+  summarise(tfr_like = sum(approx_asfr, na.rm = TRUE))
+
+
+print(tfr_like_by_nubian)
+```
+
+> The second analysis stratified the sample by Nubian ethnicity, revealing some differences. To ensure a more reliable and comparable estimate, we excluded the oldest age group (45–49), as it showed a strongly negative ASFR value among non-Nubian women (-1.94), likely due to small sample size or outlier effects. With this adjustment, the TFR-like estimate for Nubian women was slightly higher at 2.50 compared to 2.21 for non-Nubians. The pattern of average children per age group also differed: Nubian women reported fewer children in the youngest age groups but surpassed non-Nubians in the 30–39 range. These dynamics suggest potentially different fertility trajectories across the two groups, possibly influenced by cultural norms, marriage timing, or access to reproductive health services. The observed divergence deserves further exploration in light of broader socio-demographic and documentation-related factors.
+
+CEB FOR EDUCATIONAL LEVEL COLLAPSED IN GROUPS
+
+```{r}
+
+ceb_by_age_educ <- dataset_fertility %>%
+  filter(!is.na(educ_group)) %>%
+  group_by(educ_group, age_group_5) %>%
+  summarise(mean_ceb = mean(actual_children, na.rm = TRUE), .groups = "drop") %>%
+  arrange(educ_group, age_group_5)
+
+#differences
+ceb_by_age_educ <- ceb_by_age_educ %>%
+  group_by(educ_group) %>%
+  mutate(approx_asfr = c(NA, diff(mean_ceb))) %>%
+  ungroup()
+
+#TFR-like  ( no 45-49)
+tfr_like_by_educ <- ceb_by_age_educ %>%
+  filter(age_group_5 != "45-49") %>%
+  group_by(educ_group) %>%
+  summarise(tfr_like = sum(approx_asfr, na.rm = TRUE))
+
+
+print(ceb_by_age_educ)
+print(tfr_like_by_educ)
+
+```
+
+> Fertility by education (with the problematic final age group excluded) yielded TFR-like estimates of 1.01 (primary or less), 2.85 (secondary), 3.25 (tertiary) and 2.00 (other), showing higher estimates among more educated women.\
+>
+> This unexpected gradient likely reflects small-sample variability, selection biases, or socioeconomic/resource differences that enable higher fertility among some tertiary-educated respondents, rather than a straightforward causal effect of education.
+
+CEB FOR DOCUMENTATION STATUS
+
+```{r}
+
+ceb_by_age_doc <- dataset_fertility %>%
+  filter(!is.na(undocumented_def)) %>%
+  group_by(undocumented_def, age_group_5) %>%
+  summarise(mean_ceb = mean(actual_children, na.rm = TRUE), .groups = "drop") %>%
+  arrange(undocumented_def, age_group_5)
+
+#differences
+ceb_by_age_doc <- ceb_by_age_doc %>%
+  group_by(undocumented_def) %>%
+  mutate(approx_asfr = c(NA, diff(mean_ceb))) %>%
+  ungroup()
+
+# TFR-like (no 45-49)
+tfr_like_by_doc <- ceb_by_age_doc %>%
+  filter(age_group_5 != "45-49") %>%
+  group_by(undocumented_def) %>%
+  summarise(tfr_like = sum(approx_asfr, na.rm = TRUE))
+
+
+print(ceb_by_age_doc)
+print(tfr_like_by_doc)
+
+```
+
+ONLY ID
+
+```{r}
+
+ceb_only_id <- ceb_by_age_doc %>%
+  filter(undocumented_def == "only ID",
+         age_group_5 %in% c("20-24", "25-29", "30-34", "35-39", "40-44")) %>%
+  arrange(age_group_5)
+
+#ASFR-like
+ceb_only_id <- ceb_only_id %>%
+  mutate(approx_asfr = c(NA, diff(mean_ceb)))
+
+#TFR-like 
+tfr_like_onlyid_clean <- sum(ceb_only_id$approx_asfr, na.rm = TRUE)
+
+print(ceb_only_id)
+cat("TFR-like for 'only ID' (cleaned, incl. 20-24):", round(tfr_like_onlyid_clean, 2), "\n")
+
+```
+
+> Fertility by documentation status produced TFR-like estimates of 3.00 for undocumented women, 2.88 for fully documented women, and an initially implausible −0.48 for the “only ID” group caused by an extreme drop in CEB between ages 15–19 and 20–24.\
+>
+> After excluding the 15–19 cohort and recalculating for ages 20–44, the “only ID” estimate rose to 1.4 and the ASFRs became more stable, indicating the negative value was driven by a small/selective subgroup or reporting anomalies.

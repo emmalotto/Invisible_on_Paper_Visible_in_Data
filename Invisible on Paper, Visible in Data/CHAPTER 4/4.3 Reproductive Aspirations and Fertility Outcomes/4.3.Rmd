@@ -1,0 +1,366 @@
+---
+title: '4.3'
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Reproductive Aspirations and Fertility Outcomes
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 4.3, “Reproductive Aspirations and Fertility Outcomes”.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+REAL FERTILITY GAP
+
+```{r}
+# children index
+has_children <- !is.na(data_subset$Q46) & data_subset$Q46 > 0
+sum(has_children) 
+
+#(Q46i1–Q46i10)
+cert_vars <- data_subset[, paste0("Q46i", 1:10)]
+data_subset$any_missing_cert <- apply(cert_vars, 1, function(x) any(x == 0, na.rm = TRUE))
+
+# enrollement
+enrollment_vars <- data_subset[, paste0("Q46n", 1:10)]
+data_subset$any_enrollment_blocked <- apply(enrollment_vars, 1, function(x) any(x == 1, na.rm = TRUE))
+
+#exams
+exam_vars <- data_subset[, paste0("Q46p", 1:10)]
+data_subset$any_exam_blocked <- apply(exam_vars, 1, function(x) any(x == 1, na.rm = TRUE))
+```
+
+```{r}
+#Subset women aged 40+
+fertility_gapw40 <- subset(data_subset, B1 == 1 & Q1 >= 40)
+nrow(fertility_gapw40)
+summary(fertility_gapw40$fertility_gap)
+
+#By ethnicity (nubian vs non)
+tab <- tapply(fertility_gapw40$fertility_gap, fertility_gapw40$nubian, 
+              function(x) c(mean=mean(x, na.rm=TRUE), sd=sd(x, na.rm=TRUE)))
+print(tab)
+t.test(fertility_gap ~ nubian, data = fertility_gapw40)
+
+#By marital status
+print(table(fertility_gapw40$marital_status))
+aov_out <- aov(fertility_gap ~ marital_status, data = fertility_gapw40)
+summary(aov_out)
+
+#By education
+print(table(fertility_gapw40$education))
+aov_out2 <- aov(fertility_gap ~ education, data = fertility_gapw40)
+summary(aov_out2)
+
+#By missing certificate
+print(table(fertility_gapw40$any_missing_cert))
+t.test(fertility_gap ~ any_missing_cert, data = fertility_gapw40)
+
+#By enrollment block
+print(table(fertility_gapw40$any_enrollment_blocked))
+t.test(fertility_gap ~ any_enrollment_blocked, data = fertility_gapw40)
+
+#By exam block
+print(table(fertility_gapw40$any_exam_blocked))
+t.test(fertility_gap ~ any_exam_blocked, data = fertility_gapw40)
+```
+
+> In the 40+ subgroup, Nubian women showed a slightly larger fertility gap, whereas marital status and higher education had no meaningful effect. Households with at least one unregistered child exhibited smaller fertility gaps, and those reporting school - enrollment/exam barriers showed no gap - however, the latter results come from very small subsamples (1.2% and 0.6%) and should be interpreted with caution.
+
+1.  general summary
+
+```{r}
+#summary
+summary(data_subset$desired_children)
+
+#plotting
+df_hist <- data_subset %>%
+  filter(!is.na(desired_children)) %>%
+  count(desired_children) %>%
+  mutate(pct = n / sum(n) * 100)
+
+
+ggplot(df_hist, aes(x = desired_children, y = pct)) +
+  geom_col(fill = "skyblue") +
+  geom_text(aes(label = sprintf("%.1f%%", pct)), 
+            vjust = -0.5, size = 3) +
+  scale_x_continuous(breaks = seq(0, max(df_hist$desired_children), by = 1)) +
+  scale_y_continuous(expand = expansion(c(0, .1))) +
+  labs(
+    title = "Distribution of Desired Number of Children",
+    x     = "Desired Number of Children",
+    y     = "Percentage of Respondents"
+  )
+```
+
+> Respondents’ desired number of children ranges from 0 (some explicitly do not want any) up to a maximum of 16. The first quartile is 2, the median is 3, and the third quartile is 4, indicating that 50% of people want between 2 and 4 children. The overall mean is about 2.86, slightly below the median, suggesting a mildly left‑skewed distribution.
+
+2.  by age
+
+```{r}
+
+# test  correlation between age (Q1) and desired_children
+cor_test_age <- cor.test(data_subset$Q1, data_subset$desired_children, 
+                         use = "pairwise.complete.obs")
+print(cor_test_age)
+
+#plotting
+ggplot(data_subset, aes(x = Q1, y = desired_children)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Desired Children vs. Age",
+    x     = "Age (years)",
+    y     = "Desired Number of Children"
+  )
+
+ggplot(
+  subset(data_subset, !is.na(age_group) & !is.na(desired_children)),
+  aes(x = age_group, y = desired_children)
+) +
+  geom_boxplot(fill = "lightblue", outlier.shape = NA, alpha = 0.6) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.3, col="steelblue") +
+  coord_cartesian(ylim = c(0, max(data_subset$desired_children, na.rm = TRUE))) +
+  labs(
+    title = "Desired Number of Children by Age Group",
+    x     = "Age Group",
+    y     = "Desired Number of Children"
+  )
+
+```
+
+> Young adults (18–24) want on average about 2.6 children, whereas those over 45 want around 3.3. The monotonic increase suggests that older cohorts report higher fertility intentions.
+>
+> A Pearson test yields t=5.5844 with df=1278 (p=2.86×10\^-8), and an estimated correlation of r=0.154 (95% CI [0.100,0.207]). Although the effect size is small, it is highly significant: older respondents tend to want slightly more children on average.
+
+3.  by gender
+
+```{r}
+
+
+t.test(desired_children ~ gender, data = data_subset, 
+                    na.action = na.exclude)
+
+
+# Boxplot with p-value annotation
+ggplot(data_subset, aes(x = gender, y = desired_children)) +
+  geom_boxplot(fill = c("lightgreen", "orange")) +
+  labs(
+    title = "Desired Number of Children by Gender",
+    x     = "Gender",
+    y     = "Desired Number of Children"
+  )
+
+
+```
+
+> In a Welch two‑sample t‑test comparing males (n =612) and females (n =702): t = 3.7719, p = 0.0001704. Men report a higher mean desired number of children (3.05) than women (2.69); the 95% CI for the difference is [0.17, 0.55]. This suggests a modest but statistically significant gender gap in fertility intentions.
+
+4.  by marital status
+
+```{r}
+anova_marital <- aov(desired_children ~ marital_group, data = data_subset)
+print(summary(anova_marital))
+
+
+m_summary <- data_subset %>%
+  group_by(marital_group) %>%
+  summarise(
+    n                = n(),
+    mean_desired     = mean(desired_children, na.rm = TRUE),
+
+  )
+print(m_summary)
+
+#plotting
+ggplot(data_subset, aes(x = marital_status, y = desired_children)) +
+  geom_boxplot(fill = "lightcoral") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Desired Number of Children by Marital Status",
+    x     = "Marital Status",
+    y     = "Desired Number of Children"
+  )
+```
+
+> An ANOVA testing the effect of marital status on desired number of children yields F(6, 1274) = 3.424, p = 0.00234. This indicates that there are significant differences in fertility intentions across marital categories.
+
+5.  by educational level
+
+```{r}
+anova_edu <- aov(desired_children ~ educ_group, data = data_subset)
+print(summary(anova_edu))
+
+
+ggplot(data_subset, aes(x = education, y = desired_children)) +
+  geom_boxplot(fill = "lightgoldenrod") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(
+    title = "Desired Number of Children by Education Level",
+    x     = "Education Level",
+    y     = "Desired Number of Children"
+  )
+
+table(data_subset$educ_group, data_subset$desired_children)
+
+
+e_summary <- data_subset %>%
+  group_by(educ_group) %>%
+  summarise(
+    n                = n(),
+    mean_desired     = mean(desired_children, na.rm = TRUE),
+
+  )
+print(e_summary)
+
+```
+
+> An ANOVA for education level gives F(10, 1270) = 1.642, p = 0.0896. This is marginal (p \< 0.10), suggesting weak evidence that educational attainment is associated with how many children respondents want.
+
+6.  by ethnicity (nubians only)
+
+```{r}
+data_subset <- data_subset %>%
+  mutate(nubian = factor(if_else(Q104 == 0, "Nubian", "Non Nubian")))
+
+tt_nubian <- t.test(desired_children ~ nubian, data = data_subset, 
+                    na.action = na.exclude)
+print(tt_nubian)
+
+ggplot(data_subset, aes(x = nubian, y = desired_children)) +
+  geom_boxplot(fill = "plum") +
+  labs(
+    title = "Desired Number of Children by Nubian Ethnicity",
+    x     = "Ethnicity",
+    y     = "Desired Number of Children"
+  )
+
+
+```
+
+> A Welch two‑sample t‑test indicates that Nubian respondents want slightly more children (mean = 2.97) than non‑Nubians (mean = 2.71); t = –2.6851, df = 1227, p = 0.00735. The 95% CI for the difference is [–0.4387, –0.0683], confirming a small but significant ethnic disparity in fertility intentions.
+
+7.  documentation
+
+```{r}
+anova_doc <- aov(desired_children ~ undocumented_def, data = data_subset, na.action = na.exclude)
+summary(anova_doc)
+
+
+aggregate(desired_children ~ undocumented_def, data = data_subset, mean, na.rm = TRUE)
+
+```
+
+> An ANOVA found a significant difference in fertility intentions by documentation status (F(2,1278)=9.84, p\<0.001); fully documented respondents reported higher desired children (mean=3.37) than undocumented and ID-only groups (both mean=2.77).
+
+CORRELATION ANALYISES
+
+```{r}
+
+library(polycor)
+
+vars_for_corr <- data_subset %>%
+  select(
+    desired_children,       # numeric
+    Q1,                     # numeric
+    actual_children,        # numeric
+    gender,                 # factor (binary)
+    age_group,              # ordered factor
+    marital_group,          # factor
+    educ_group,             # factor
+    undocumented_def,       # ordered factor
+    nubian                  # numeric (0/1)
+  )
+
+vars_clean <- vars_for_corr %>%
+  mutate(
+    Q1 = as.numeric(as.character(Q1)),
+    gender = as.factor(gender),
+    age_group = as.factor(age_group),
+    marital_group = as.factor(marital_group),
+    educ_group = as.factor(educ_group),
+    undocumented_def = as.factor(undocumented_def),
+    nubian = as.factor(nubian)
+  ) %>%
+
+  as.data.frame() %>%
+
+  setNames(make.names(names(.)))  
+
+
+for (col in names(vars_clean)) {
+  attributes(vars_clean[[col]]) <- NULL
+}
+
+
+hetcor_res <- hetcor(vars_clean)
+
+hetcor_res$correlations
+
+
+```
+
+A correlation matrix was computed to explore the strength and direction of the relationships between key variables in the dataset.
+
+```{r}
+
+
+library(ggcorrplot)
+
+
+
+corr_mat <- hetcor_res$correlations
+
+
+colnames(corr_mat) <- rownames(corr_mat) <- c(
+  "Desired Children", "Age", "Actual Children", "Gender",
+  "Age Group", "Marital Status", "Educational Level", "Documentation Status", "Nubian Ethnicity"
+)
+
+
+desired_order <- c(
+  "Actual Children", "Age", "Age Group", "Desired Children", 
+  "Documentation Status", "Educational Level", "Gender", "Marital Status", "Nubian Ethnicity"
+)
+
+
+corr_mat_ordered <- corr_mat[desired_order, desired_order]
+
+library(ggcorrplot)
+library(ggplot2)
+
+p <- ggcorrplot(corr_mat_ordered,
+           hc.order = FALSE,
+           type = "lower",
+           lab = TRUE,
+           lab_size = 4,              
+           method = "circle",
+           colors = c("#9999FF", "white", "#FF9933"),
+           show.legend = TRUE,
+           outline.color = "gray80",
+           tl.cex = 12,               
+           tl.srt = 45,               
+           tl.col = "black"
+) +
+  theme_minimal(base_family = "serif") +
+  theme(
+    axis.text.x = element_text(size = 13, angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 13),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank()
+  )
+
+
+# Save the chart as a PDF (high quality vector)
+ggsave("correlation_plot.pdf", plot = p, width = 8, height = 6)
+
+```

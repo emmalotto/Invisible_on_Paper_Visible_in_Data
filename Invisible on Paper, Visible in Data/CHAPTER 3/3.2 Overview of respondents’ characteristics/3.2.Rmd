@@ -1,0 +1,321 @@
+---
+title: "3.2"
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview of respondents’ characteristics
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 3.2, “Overview of respondents’ characteristics”. It includes data preparation, descriptive statistics, tables and figures (age, sex, ethnicity, documentation, education, marital status), contingency tables, and the statistical tests used to assess associations between documentation status and key socio-demographic variables. Use the script to re-run the exact tables and plots presented in the chapter.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+OVERVIEW OF RESPONDENTS' CHARATETISTICS Age distribution
+
+```{r}
+summary(data_subset$Q1[data_subset$Q1 < 98 & !is.na(data_subset$Q1)])
+prop.table(table(data_subset$age_group))
+
+#plotting
+ggplot(data_subset %>% filter(Q1 < 98 & !is.na(Q1)), aes(x = Q1)) +
+  geom_histogram(aes(y = after_stat(count / sum(count) * 100)), 
+                 fill = "lightgreen", color = "white", binwidth = 4.5) +
+  labs(title = "Age Distribution", x = "Age", y = "Percentage") +
+  theme_minimal()
+```
+
+> The sample has a median age of 29 and a mean of 32.9, with the age range 18-90. The distribution is slightly right-skewed (mean \> median) driven by older outliers. Most respondents fall in the 25-34 bracket (35.8%), followed by 18-24 (28.4%); older groups (35-44 and 45+) are smaller (18.2% and 17.5%).
+
+Gender composition
+
+```{r}
+prop.table(table(data_subset$B1))
+
+#plotting
+gender_df <- data_subset %>%
+  filter(!is.na(B1)) %>%
+  count(B1) %>%
+  mutate(percent = round(n / sum(n) * 100, 1),
+         label = paste0(ifelse(B1 == 0, "Male", "Female"), " (", percent, "%)"))
+
+ggplot(gender_df, aes(x = 2, y = percent, fill = label)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  xlim(0.5, 2.5) +
+  theme_void() +
+  theme(legend.title = element_blank()) +
+  labs(title = "Gender Distribution") +
+  scale_fill_manual(values = c("lightpink", "skyblue"))
+
+```
+
+> Two-category gender variable: women are the majority in this sample (53.4%), men are 46.6% of the respondents. The split is reasonably balanced.
+
+Ethnic distribution
+
+```{r}
+#NUBIAN
+prop.table(table(data_subset$nubian))
+
+nubian_df <- data_subset %>%
+  filter(!is.na(nubian)) %>%
+  count(nubian) %>%
+  mutate(percent = round(n / sum(n) * 100, 1),
+         label = c("Non-Nubian", "Nubian"))
+
+ggplot(nubian_df, aes(x = label, y = percent, fill = label)) +
+  geom_col(width = 0.5, show.legend = FALSE) +
+  geom_text(aes(label = paste0(percent, "%")), vjust = -0.5) +
+  scale_fill_manual(values = c("orange", "plum")) +
+  labs(title = "Ethnic Group: Nubian vs Non-Nubian",
+       x = "", y = "Percentage") +
+  theme_minimal()
+```
+
+> About 56.3% of respondents are coded 1 (Nubian) and 43.7% 0. Note: you mentioned Nubians were oversampled by design, so raw proportions reflect the survey design rather than population prevalence.
+
+```{r}
+#TOTAL
+#ethnic distribution
+ethnic_labels <- c(
+  "Nubian", "Kikuyu", "Luo", "Luhya", "Kamba", "Kalenjin",
+  "Kisii", "Meru/Embu", "Masai/Samburu", "MijiKenda",
+  "Taita", "Somali", "Pokot", "Turkana", 
+  "Kenyan only", "Other", "Don't know", "Refuse to answer"
+)
+
+# count ethnic groups
+ethnic_counts <- table(data_subset$Q104); ethnic_counts
+
+#  percentages
+ethnic_percentages <- round(100 * prop.table(ethnic_counts), 1); ethnic_percentages
+
+# labels with names and percentages
+legend_labels <- paste0(
+  ethnic_labels[as.numeric(names(ethnic_counts)) + 1],
+  " (", ethnic_percentages, "%)"
+)
+
+
+#plotting
+# Prepare a data frame with counts and percentages
+ethnic_df <- data_subset %>%
+  filter(!is.na(Q104)) %>%
+  count(Q104) %>%
+  mutate(
+    percent = n / sum(n) * 100,
+    label = ethnic_labels[Q104 + 1]
+  ) %>%
+  arrange(desc(percent))
+
+# Plot
+ggplot(ethnic_df, aes(x = reorder(label, percent), y = percent)) +
+  geom_col(fill = "lightsteelblue", width = 0.7) +
+  geom_text(aes(label = paste0(round(percent, 1), "%")), 
+            hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  labs(
+    title = "Ethnic Composition",
+    x = NULL,
+    y = "Percentage"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.y = element_text(size = 9),
+    panel.grid.major.y = element_blank()
+  )
+
+
+```
+
+> The first category (“Nubian”) is very large (56.4%). Other sizable groups include Luhya (\~14.9%) and Luo (\~14.8%); smaller groups (Kamba, Kisii, etc.) make up the rest. Reminder: Nubian over-representation is intentional in sampling.
+
+Documentation status
+
+```{r}
+table(data_subset$undocumented_def)
+
+#percentages
+prop.table(table(data_subset$undocumented_def))
+
+#barplot with percentages
+library(ggplot2)
+library(scales)  # for percent_format()
+
+# ensure factor with desired order/labels
+data_subset$undocumented_def <- factor(data_subset$undocumented_def,
+  levels = c("no documentation", "only ID", "fully documented"),
+  labels = c("No documentation", "Only ID", "Fully documented")
+)
+
+# compute counts and percentages
+df_doc <- as.data.frame(table(data_subset$undocumented_def))
+colnames(df_doc) <- c("doc_status", "n")
+df_doc$prop <- df_doc$n / sum(df_doc$n)
+
+# plot
+ggplot(df_doc, aes(x = doc_status, y = prop)) +
+  geom_col(fill = "lightgreen") +
+  geom_text(aes(label = paste0(n, " (", percent(prop, accuracy = 0.1), ")")),
+            vjust = -0.25, size = 3.5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1), expand = expansion(mult = c(0, .1))) +
+  labs(x = "Documentation status", y = "Share of respondents", 
+       title = "Documentation status (data_subset)") +
+  theme_minimal(base_size = 12)
+
+```
+
+> Counts: no documentation = 700, only ID = 428, fully documented = 186. Proportions: 53.3% undocumented, 32.6% only ID, 14.2% fully documented. So a majority of the respondents is lacking full documentation.
+
+Marital status
+
+```{r}
+# marital status distribution
+marital_tab <- data_subset %>%
+  filter(!is.na(marital_status)) %>%
+  count(marital_status) %>%
+  mutate(percent = n / sum(n) * 100)
+marital_tab
+
+
+#plotting
+ggplot(marital_tab, aes(x = reorder(marital_status, -percent), y = percent)) +
+  geom_col(fill = "thistle") +
+  geom_text(aes(label = paste0(round(percent, 1), "%")), vjust = -0.5, size = 3) +
+  labs(title = "Distribution of Marital Status", x = "Marital Status", y = "Percentage") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 8))
+```
+
+> Married respondents are the largest group (765; 58.2%). Singles are 32.6% (428). Smaller categories: widowed 4.3%, separated/divorced together 3.5%, partner-unmarried 1.2%, refuse 0.15%. So most respondents are married or single, with relatively few in other categories
+
+Educational Attainment
+
+```{r}
+education_tab <- data_subset %>%
+  filter(!is.na(education)) %>%
+  count(education) %>%
+  mutate(percent = n / sum(n) * 100)
+
+print(education_tab)
+
+#plotting
+
+ggplot(education_tab, aes(x = reorder(education, n), y = percent)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  coord_flip() +
+  geom_text(aes(label = sprintf("%.1f%%", percent)), hjust = -0.1, size = 3) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = 10),
+    panel.grid.major.y = element_blank()
+  ) +
+  labs(title = "Education Level Distribution") +
+  scale_y_continuous(labels = scales::percent_format(scale = 1), limits = c(0, 40))
+```
+
+> Largest group completed secondary education (437; 33.4%). Next are completed primary (238; 18.2%) and some secondary (214; 16.4%). Tertiary/college completion is modest (9.0% completed college/technical, 1.4% completed university). Overall the sample leans toward secondary-level education.
+
+NOTABLE ASSOCIATION AMONG SOCIODEMOGRAPHIC VARIABLES
+
+```{r}
+library(scales)
+#NUBIAN AND DOCUMENTATION
+# contingency table between Nubian status and Documentation
+table(data_subset$nubian, data_subset$undocumented_def)
+
+# chi-squared test
+#H0:no association between Nubian status and documentation status
+#H1: suggests that there is an association
+chisq.test(table(data_subset$nubian, data_subset$undocumented_def))
+
+
+#NFR NUBIAN
+#only nubians
+nubians <- data_subset %>% filter(nubian == 1)
+
+#variable NRF (QE10 == 1 --> NRF)
+nubians <- nubians %>%
+  mutate(nrf = ifelse(QE10 == 1, "NRF", "Non-NRF"))
+
+#table
+table_doc <- nubians %>%
+  group_by(nrf, undocumented_def) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(nrf) %>%
+  mutate(percentage = round(100 * count / sum(count), 1))
+
+print(table_doc)
+
+tab_test <- table(nubians$nrf, nubians$undocumented_def)
+
+# chi-squared test
+#H0:no association between Nubian status (NFR) and documentation status
+#H1: suggests that there is an association
+chi_res <- chisq.test(tab_test)
+print(chi_res)
+
+
+
+
+#EDUCATIONAL LEVEL AND DOCUMENTATION
+tab_edu_doc <- table(data_subset$educ_group, data_subset$undocumented_def)
+print(tab_edu_doc)
+prop.table(tab_edu_doc, margin = 1)
+
+# chi-squared test
+#H0:no association between educational level status and documentation status
+#H1: suggests that there is an association
+chisq.test(tab_edu_doc)
+
+
+
+#MARITAL STATUS AND DOCUMENTATION
+tab_mar_doc <- table(data_subset$marital_group, data_subset$undocumented_def)
+print(tab_mar_doc)
+prop.table(tab_mar_doc, margin=1)
+# chi-squared test
+#H0:no association between marital status and documentation status
+#H1: suggests that there is an association
+chisq.test(tab_mar_doc)
+
+
+```
+
+> Nubian vs documentation (first test): The contingency table shows a very different documentation profile by nubian: Nubians have a much higher share of “fully documented” (165/740 = 22.3%) compared with non-Nubians (21/574 = 3.7%). The Pearson chi-square is highly significant (X²=102.9, df=2, p\<2.2e-16) — strong evidence of association.
+
+> Alternative grouping (NRF vs Non-NRF): When you tested tab_test (NRF vs Non-NRF), the chi-square was not significant (X²=0.60, p=0.74). That indicates no association for that different grouping — the result depends on how groups are defined.
+
+> Education vs documentation: Row proportions show higher education (tertiary) has a larger share fully documented (24.5%) compared with primary (8.0%). The chi-square is significant (X²=116.8, p\<2.2e-16), but R warned the approximation may be incorrect (some small cells). Interpret with caution; consider Fisher or combining small categories.
+
+> Marital status vs documentation: Singles are much more likely to have no documentation (\~71.3%) compared with coupled respondents (46.0%). Chi-square is highly significant (X²=111.8, p\<2.2e-16), indicating association.
+
+BASELINE DIFFERENCES BETWEEN NUBIAN AND NON-NUBIAN RESPONDENTS
+
+```{r}
+library(gtsummary)
+#Nubians vs socio-demographic characteristics
+table_nubians <- data_subset %>%
+  select(nubian, gender, marital_status, education, age_group, undocumented_def) %>%
+  tbl_summary(by = nubian, percent = "row", missing = "no") %>%
+  add_p() %>% 
+  modify_header(label ~ "**Variable**") %>%
+  bold_labels()
+
+# Visualizzi la tabella
+table_nubians
+```
+
+> Displaying a contingency table between Nubian vs non-Nubian for socio-demographic characteristics is a helpful first step: it shows raw counts and proportions, highlights group imbalances (useful given the oversampling), and guides which covariates may confound outcomes. For publication, present both counts and row/column percentages and report any statistical tests (chi-square or Fisher) and whether survey weights were applied.

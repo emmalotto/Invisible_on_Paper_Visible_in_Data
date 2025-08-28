@@ -1,0 +1,340 @@
+---
+title: '3.4'
+author: "Lotto Emma"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Children and documentation
+
+This R script contains all commands and code necessary to reproduce the analyses reported in Chapter 3.4, “Children and documentation”. Each paragraph of the analysis answers the question given in the title, at the end only the significant answers are plotted.
+
+```{r}
+rm(list=ls())
+source("../../preprocessing.R")
+library(tidyverse)
+```
+
+```{r}
+# children index
+has_children <- !is.na(data_subset$Q46) & data_subset$Q46 > 0
+sum(has_children) 
+
+
+#(Q46)
+table(data_subset$Q46[has_children], useNA = "ifany")
+round(prop.table(table(data_subset$Q46[has_children])) * 100, 1)
+
+#(Q46i1–Q46i10)
+cert_vars <- data_subset[, paste0("Q46i", 1:10)]
+data_subset$any_missing_cert <- apply(cert_vars, 1, function(x) any(x == 0, na.rm = TRUE))
+table(data_subset$any_missing_cert[has_children])
+round(prop.table(table(data_subset$any_missing_cert[has_children])) * 100, 1)
+
+```
+
+```{r}
+#(Q46k1–Q46k10)
+delay_vars <- data_subset[, paste0("Q46k", 1:10)]
+data_subset$avg_cert_delay <- apply(delay_vars, 1, function(x) {
+  if (all(is.na(x))) NA else mean(x, na.rm = TRUE)
+})
+
+
+summary(data_subset$avg_cert_delay[has_children])
+
+#(Q46n*, Q46p*)
+# enrollement
+enrollment_vars <- data_subset[, paste0("Q46n", 1:10)]
+data_subset$any_enrollment_blocked <- apply(enrollment_vars, 1, function(x) any(x == 1, na.rm = TRUE))
+
+#exams
+exam_vars <- data_subset[, paste0("Q46p", 1:10)]
+data_subset$any_exam_blocked <- apply(exam_vars, 1, function(x) any(x == 1, na.rm = TRUE))
+
+
+table(data_subset$any_enrollment_blocked[has_children])
+table(data_subset$any_exam_blocked[has_children])
+
+
+children_counts <- table(data_subset$Q46[has_children])
+children_perc   <- prop.table(children_counts) * 100
+children_df <- as.data.frame(children_counts)
+colnames(children_df) <- c("num_children", "count")
+children_df$perc <- round(children_df$count / sum(children_df$count) * 100, 1)
+
+#histogram
+ggplot(children_df, aes(x = factor(num_children), y = perc)) +
+  geom_bar(stat = "identity", fill = "plum") +
+  labs(
+    title = "Number of Children per Respondent",
+    x = "Number of Children",
+    y = "Percentage"
+  ) +
+  theme_minimal() +
+  geom_text(aes(label = paste0(perc, "%")), vjust = -0.5, size = 3.5)
+```
+
+> Among 901 parents, 44.3% have one child, 24.6% have two, and 15.6% have three; notably, 41.1% reported at least one child without a birth certificate. Average registration delay was about 3.8 months with high variability (25% registered immediately while 25% waited \>5 months), and formal barriers to schooling were rare (1.2% denied enrollment, 0.6% exam issues).
+
+1\. Does the documentation status influence the number of children a couple has?
+
+```{r}
+# Crosstab for number of children and documentation status
+table(data_subset$Q46[has_children], data_subset$any_missing_cert[has_children])
+round(prop.table(table(data_subset$Q46[has_children], data_subset$any_missing_cert[has_children]), 1) * 100, 1)
+
+
+chisq.test(table(data_subset$Q46[has_children], data_subset$any_missing_cert[has_children]))
+
+```
+
+> There is a highly significant association between the number of children and having at least one child without a certificate. Families with fewer children are disproportionately more likely to report missing certificates. The warning suggests some expected frequencies may be too low, so this result should be interpreted with some caution.
+
+2\. Does the delay in receiving documentation affect the number of children?
+
+```{r}
+
+agg_delay <- aggregate(avg_cert_delay ~ Q46, data = data_subset[has_children,], FUN = mean)
+boxplot(avg_cert_delay ~ Q46, data = data_subset[has_children,],
+        xlab = "Number of children", ylab = "Average certificate delay")
+
+cor.test(data_subset$Q46[has_children], data_subset$avg_cert_delay[has_children])
+
+```
+
+> A small but statistically significant positive correlation suggests that families with more children experience slightly longer average delays in obtaining birth certificates. This may reflect increasing bureaucratic or logistical challenges with larger family sizes.
+
+3\. Does the presence of enrollment or exam blocks correlate with the number of children?
+
+```{r}
+# Crosstab for number of children and enrollment/exam blocks
+table(data_subset$Q46[has_children], data_subset$any_enrollment_blocked[has_children])
+table(data_subset$Q46[has_children], data_subset$any_exam_blocked[has_children])
+
+chisq.test(table(data_subset$Q46[has_children], data_subset$any_enrollment_blocked[has_children]))
+
+
+```
+
+> There is no statistically significant relationship at the 5% level between the number of children and having at least one child who was blocked from enrollment or exams. The result is suggestive (p = 0.077) and might deserve further exploration with more data.
+
+4\. Is parental marital status associated with missing birth certificates?
+
+```{r}
+# Crosstab for marital status and  any_missing_cert
+tab_marital <- table(data_subset$Q2[has_children], data_subset$any_missing_cert[has_children])
+chisq.test(tab_marital)
+
+
+```
+
+> There is no statistically significant relationship between parental marital status and the likelihood of having at least one child without a birth certificate. This suggests that civil status does not substantially affect registration outcomes in this sample, unlike other factors such as education or ethnicity.
+
+5\. How does the age of each child relate to the documentation status?
+
+```{r}
+# 5a) Pivot to long form (child by child)
+# Number of respondents and max children
+n_resp   <- nrow(data_subset)
+max_kids <- 12
+
+#stack each respondent’s child columns in row‑major order
+stack_rows <- function(df, prefix, n_cols) {
+  mat <- as.matrix(df[paste0(prefix, 1:n_cols)])
+  as.vector(t(mat))
+}
+
+# Construct long_df
+long_df <- data.frame(
+  respondent    = rep(1:n_resp, each = max_kids),
+  child_num     = rep(1:max_kids, times = n_resp),
+  age           = stack_rows(data_subset, "Q46e", max_kids),
+  has_cert      = stack_rows(data_subset, "Q46i", max_kids),
+  no_cert_reason= stack_rows(data_subset, "Q46j", max_kids),
+  cert_delay    = stack_rows(data_subset, "Q46k", max_kids),
+  nubian        = rep(data_subset$nubian, each = max_kids),
+  undocumented  = rep(data_subset$undocumented, each = max_kids)
+)
+
+
+
+# t-test: age ~ has_cert
+t.test(age ~ has_cert, data = long_df)
+
+# Mean age by certificate status
+aggregate(age ~ has_cert, data = long_df, FUN = mean)
+
+
+```
+
+> Children without certificates are significantly younger (mean: 7.2) compared to those with documentation (mean: 15.6). The t-test confirms this age gap is highly significant (p \< 0.001), reflecting likely bureaucratic delays for younger children.
+
+6.  Among children without certificates, do reasons (Q46j) differ by ethnicity or parental documentation?
+
+```{r}
+# Subset only those children without a certificate
+no_cert <- subset(long_df, has_cert == 0 & !is.na(no_cert_reason))
+
+# Crosstab reasons × nubian
+tab1 <- table(no_cert$no_cert_reason, no_cert$nubian)
+print(round(prop.table(tab1, 2) * 100, 1))
+chisq.test(tab1)
+
+# Crosstab reasons × undocumented
+tab2 <- table(no_cert$no_cert_reason, no_cert$undocumented)
+print(round(prop.table(tab2, 2) * 100, 1))
+chisq.test(tab2)
+
+
+```
+
+> Nubian families report a broader range of reasons for missing certificates, especially bureaucratic rejection (reason 2) and lack of awareness (reason 1). The association is statistically significant (p \< 0.001).
+
+> There is no significant difference in the distribution of reasons for missing certificates between documented and undocumented families (p = 0.78). This suggests that barriers affect both groups similarly.
+
+7.  Does the proportion of a respondent’s children missing certificates correlate with their total number of children?
+
+```{r}
+long_df$total_kids <- rep(data_subset$Q46, each = max_kids)[1:nrow(long_df)]
+
+# % children without certificate per respondent
+by_resp <- aggregate(has_cert ~ respondent + total_kids, data = long_df, 
+                     FUN = function(x) mean(x == 0, na.rm = TRUE))
+names(by_resp)[3] <- "pct_missing_cert"
+
+# correlation
+cor.test(by_resp$total_kids, by_resp$pct_missing_cert)
+
+```
+
+> A strong and statistically significant negative correlation shows that in families with more children, a smaller share of them tend to be undocumented. This might suggest that parents become more familiar with bureaucratic procedures over time or that older children are more likely to be registered.
+
+8.  Is parental education level associated with having any child without a certificate?
+
+```{r}
+# Crosstab education × any_missing_cert
+tab_ed <- table(data_subset$education[has_children], data_subset$any_missing_cert[has_children])
+print(round(prop.table(tab_ed,1)*100,1))
+
+# Run crosstab and test
+tab_educ_group <- table(data_subset$educ_group[has_children], data_subset$any_missing_cert[has_children])
+chisq.test(tab_educ_group)
+
+```
+
+> There is a statistically significant relationship between parental education and the likelihood of missing birth certificates. Parents with lower levels of education are more likely to report at least one undocumented child. This supports the idea that education plays a key role in navigating registration procedures.
+
+9.  Does desired number of children (desired_children) differ by parental documentation status?
+
+```{r}
+# t-test desired_children by undocumented
+t.test(desired_children ~ undocumented, data = data_subset)
+
+# Means
+aggregate(desired_children ~ undocumented, data = data_subset, FUN = mean)
+
+```
+
+> There is no statistically significant difference in fertility preferences between documented and undocumented parents, although documented individuals tend to desire slightly more children on average.
+
+10.Are parents’ desired number of children associated with their educational attainment?
+
+```{r}
+# ANOVA: desired_children ~ education
+res.aov <- aov(desired_children ~ education, data = data_subset)
+summary(res.aov)
+
+# Boxplot
+boxplot(desired_children ~ education, data = data_subset,
+        xlab="Education level", ylab="Desired children")
+
+
+```
+
+> The difference in fertility intentions across education levels is marginally non-significant. A visual inspection of the boxplot suggests a mild trend where more educated parents tend to desire fewer children, but the effect is weak.
+
+11. Does being Nubian affect birth registration outcomes?
+
+```{r}
+tab_eth <- table(nubian = data_subset$nubian[has_children],
+                 missing_cert = data_subset$any_missing_cert[has_children])
+tab_eth
+prop.table(tab_eth, 1)
+chisq.test(tab_eth)
+
+```
+
+> Nubian families are significantly more likely to have all children registered compared to non-Nubian families. This finding is counterintuitive given the Nubians' historical experience of marginalization and may reflect community mobilization, targeted outreach, or selection bias.
+
+```{r}
+## PLOTTING SIGNIFICATIVE ANSWERS
+# Question1: Does the documentation status influence the number of children a couple has?
+# Chi-squared p-value < 0.001
+# Prepare data
+q1_df <- as.data.frame(round(prop.table(
+  table(data_subset$Q46[has_children],
+        data_subset$any_missing_cert[has_children]), 1
+) * 100, 1))
+names(q1_df) <- c("num_kids","missing_cert","pct")
+q1_df <- subset(q1_df, missing_cert == TRUE)
+# Plot
+ggplot(q1_df, aes(x = factor(num_kids), y = pct)) +
+  geom_col(fill = "lightblue") +
+  labs(x = "Number of children",
+       y = "% with >=1 missing certificate",
+       title = "Q1: Documentation status vs. Number of children")
+
+# Question2: Does the delay in receiving documentation affect the number of children?
+# (Assessed via boxplot; test p < 0.001)
+ggplot(data_subset[has_children, ], 
+       aes(x = factor(Q46), y = avg_cert_delay)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(x = "Number of children",
+       y = "Average certificate delay (months)",
+       title = "Q2: Certificate delay vs. Number of children")
+
+# Question 7: Does the proportion of a respondent’s children missing certificates 
+#            correlate with their total number of children?
+# Pearson’s r = –0.445, p < 0.001
+# Prepare by_resp if not already defined:
+by_resp <- aggregate(has_cert == 0 ~ respondent + total_kids, data = long_df, FUN = mean)
+names(by_resp)[3] <- "pct_missing_cert"
+# Plot
+ggplot(by_resp, aes(x = total_kids, y = pct_missing_cert * 100)) +
+  geom_point(color = "plum", alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "purple") +
+  labs(x = "Number of children",
+       y = "% of children undocumented",
+       title = "Q7: % undocumented children vs. Family size")
+
+# Question 8: Is parental education level associated with having any child without a certificate?
+# Chi-squared p = 0.011
+ggplot(data_subset[has_children, ], 
+       aes(x = educ_group, fill = any_missing_cert)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("lightpink", "lightcoral")) +
+  labs(x = "Education level",
+       y = "% of families",
+       title = "Q8: Education vs. Missing certificate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Question 11: Does being Nubian affect birth registration outcomes?
+# Chi-squared p < 0.001
+ggplot(data_subset[has_children, ], 
+       aes(x = factor(nubian, labels = c("Non‑Nubian", "Nubian")), 
+           fill = any_missing_cert)) +
+  geom_bar(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("lightcyan", "deepskyblue")) +
+  labs(x = "Ethnic group",
+       y = "% of families",
+       title = "Q11: Ethnicity vs. Missing certificate")
+
+
+```
