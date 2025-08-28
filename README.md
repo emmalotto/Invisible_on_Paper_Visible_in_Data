@@ -11,7 +11,7 @@ This repository contains all R scripts, codebooks, and supplementary materials u
 
 ## 🧭 Overview
 
-This thesis investigates the demographic consequences of legal invisibility by analyzing fertility intentions, child registration, and access to healthcare within the Nubian community in Kibera (Nairobi, Kenya).  
+This thesis investigates the demographic consequences of legal invisibility by analyzing fertility intentions, child registration and access to healthcare within the Nubian community in Kibera (Nairobi, Kenya).  
 The analysis draws on an original dataset collected in 2015 by the Open Society Justice Initiative (OSJI), in collaboration with the Nubian Rights Forum (NRF).
 
 All analyses were conducted in **R** and organized to ensure full **transparency**, **reproducibility**, and **modularity**.
